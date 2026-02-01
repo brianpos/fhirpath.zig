@@ -45,6 +45,8 @@ const inputLabel = document.querySelector("#input-label");
 const chipRow = document.querySelector("#chip-row");
 const schemaSelect = document.querySelector("#schema-select");
 const formatToggle = document.querySelector("#format-toggle");
+const resetExprBtn = document.querySelector("#reset-expr");
+const resetInputBtn = document.querySelector("#reset-input");
 
 let currentFormat = "json-string";
 
@@ -210,17 +212,27 @@ function renderChips() {
 
 let currentExampleIdx = 0;
 
+function exampleExpr() {
+  return examples[currentExampleIdx].expr;
+}
+
+function exampleInput() {
+  const example = examples[currentExampleIdx];
+  return currentFormat === "xml" ? example.xml : JSON.stringify(example.json, null, 2);
+}
+
+function updateResetButtons() {
+  resetExprBtn.classList.toggle("hidden", exprInput.value === exampleExpr());
+  resetInputBtn.classList.toggle("hidden", jsonInput.value === exampleInput());
+}
+
 function loadExample(idx = 0) {
   currentExampleIdx = idx;
-  const example = examples[idx];
-  exprInput.value = example.expr;
-  if (currentFormat === "xml") {
-    jsonInput.value = example.xml;
-  } else {
-    jsonInput.value = JSON.stringify(example.json, null, 2);
-  }
+  exprInput.value = exampleExpr();
+  jsonInput.value = exampleInput();
   inputLabel.textContent = currentFormat === "xml" ? "Input XML" : "Input JSON";
   updateInputMeta();
+  updateResetButtons();
 }
 
 function updateInputMeta() {
@@ -381,12 +393,30 @@ function scheduleRun() {
   }, 30);
 }
 
-exprInput.addEventListener("input", scheduleRun);
-jsonInput.addEventListener("input", () => {
-  updateInputMeta();
+exprInput.addEventListener("input", () => {
+  updateResetButtons();
   scheduleRun();
 });
-schemaSelect.addEventListener("change", runExpression);
+jsonInput.addEventListener("input", () => {
+  updateInputMeta();
+  updateResetButtons();
+  scheduleRun();
+});
+resetExprBtn.addEventListener("click", () => {
+  exprInput.value = exampleExpr();
+  updateResetButtons();
+  scheduleRun();
+});
+resetInputBtn.addEventListener("click", () => {
+  jsonInput.value = exampleInput();
+  updateInputMeta();
+  updateResetButtons();
+  scheduleRun();
+});
+schemaSelect.addEventListener("change", () => {
+  updateResetButtons();
+  runExpression();
+});
 formatToggle.addEventListener("click", (e) => {
   const btn = e.target.closest(".toggle-btn");
   if (!btn) return;
@@ -396,6 +426,9 @@ formatToggle.addEventListener("click", (e) => {
   for (const el of formatToggle.querySelectorAll(".toggle-btn")) {
     el.classList.toggle("active", el.dataset.format === fmt);
   }
-  loadExample(currentExampleIdx);
+  // Never overwrite user edits — just update the label and re-evaluate.
+  inputLabel.textContent = fmt === "xml" ? "Input XML" : "Input JSON";
+  updateInputMeta();
+  updateResetButtons();
   runExpression();
 });
