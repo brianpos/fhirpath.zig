@@ -259,6 +259,7 @@ function addResultCard({ title, body, meta }) {
     card.appendChild(m);
   }
   card.appendChild(pre);
+  card.style.animationDelay = `${resultsEl.children.length * 40}ms`;
   resultsEl.appendChild(card);
 }
 
