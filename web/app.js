@@ -426,8 +426,8 @@ formatToggle.addEventListener("click", (e) => {
   for (const el of formatToggle.querySelectorAll(".toggle-btn")) {
     el.classList.toggle("active", el.dataset.format === fmt);
   }
-  // Never overwrite user edits — just update the label and re-evaluate.
   inputLabel.textContent = fmt === "xml" ? "Input XML" : "Input JSON";
+  jsonInput.value = exampleInput();
   updateInputMeta();
   updateResetButtons();
   runExpression();
