@@ -294,6 +294,7 @@ function evaluateAndCollect(engine, expr, resourceJson, schema) {
     input: resourceJson,
     schema,
     adapter: "wasm",
+    now: new Date(),
   })) {
     parts.push(resultNodeToPart(node.meta.typeName, node.data));
   }
