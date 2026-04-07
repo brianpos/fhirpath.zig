@@ -87,9 +87,22 @@ function createOperationOutcome(severity, code, diagnostics) {
 /**
  * Map a fhirpath.zig result node to a FHIR ParametersParameter part.
  * Returns the part object with name and value[x] / extension set appropriately.
+ *
+ * @param {string} typeName  - FHIRPath System type (e.g. "System.String")
+ * @param {*}      data      - the result value
+ * @param {string} fhirTypeName - original FHIR type (e.g. "FHIR.code"), may be empty
  */
-function resultNodeToPart(typeName, data) {
-  const name = typeName || "string";
+function resultNodeToPart(typeName, data, fhirTypeName) {
+  // Extract the local FHIR type name (e.g. "FHIR.code" → "code")
+  const fhirLocal = fhirTypeName?.includes(".") ? fhirTypeName.split(".").pop() : fhirTypeName;
+
+  // Use the FHIR type when it is a more specific primitive that has its own value[x]
+  const fhirPrimitiveTypes = new Set([
+    "code", "uri", "oid", "id", "markdown", "base64Binary", "canonical",
+    "url", "xhtml", "date", "dateTime", "instant", "time",
+    "integer", "positiveInt", "unsignedInt", "integer64",
+  ]);
+  const name = (fhirLocal && fhirPrimitiveTypes.has(fhirLocal)) ? fhirLocal : (typeName || "string");
   const part = { name };
 
   if (data === null || data === undefined) {
@@ -296,7 +309,7 @@ function evaluateAndCollect(engine, expr, resourceJson, schema) {
     adapter: "wasm",
     now: new Date(),
   })) {
-    parts.push(resultNodeToPart(node.meta.typeName, node.data));
+    parts.push(resultNodeToPart(node.meta.typeName, node.data, node.meta.fhirTypeName));
   }
   return parts;
 }
