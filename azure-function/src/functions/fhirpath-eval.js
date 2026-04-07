@@ -68,7 +68,7 @@ function getCorsHeaders(origin) {
   if (ALLOWED_ORIGINS.includes(origin)) {
     return {
       "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Accept",
       "Access-Control-Max-Age": "86400",
     };
@@ -572,15 +572,20 @@ app.http("fhirpath-r4", {
 });
 
 app.http("health", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   authLevel: "anonymous",
   route: "health",
-  handler: async (_request, _context) => {
+  handler: async (request, _context) => {
+    const origin = request.headers.get("origin") || "";
+    const cors = getCorsHeaders(origin);
+    if (request.method === "OPTIONS") {
+      return { status: 204, headers: cors };
+    }
     await initEngines().catch(() => {});
     const available = Object.keys(engines);
     return {
       status: available.length > 0 ? 200 : 503,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...cors },
       jsonBody: {
         status: available.length > 0 ? "ok" : "unavailable",
         engine: EVALUATOR_NAME,
@@ -590,16 +595,54 @@ app.http("health", {
   },
 });
 
+app.http("config", {
+  methods: ["GET", "OPTIONS"],
+  authLevel: "anonymous",
+  route: "config.json",
+  handler: async (request, _context) => {
+    const origin = request.headers.get("origin") || "";
+    const cors = getCorsHeaders(origin);
+    if (request.method === "OPTIONS") {
+      return { status: 204, headers: cors };
+    }
+    const configPath = path.join(FUNCTION_ROOT, "config.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+
+    // Derive base URL from the incoming request
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
+    const baseUrl = host ? `${proto}://${host}` : "";
+
+    // Resolve relative paths in server URL entries
+    for (const key of Object.keys(config)) {
+      if (typeof config[key] === "string" && config[key].startsWith("/")) {
+        config[key] = `${baseUrl}${config[key]}`;
+      }
+    }
+
+    return {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...cors },
+      jsonBody: config,
+    };
+  },
+});
+
 app.http("info", {
-  methods: ["GET"],
+  methods: ["GET", "OPTIONS"],
   authLevel: "anonymous",
   route: "/",
-  handler: async (_request, _context) => {
+  handler: async (request, _context) => {
+    const origin = request.headers.get("origin") || "";
+    const cors = getCorsHeaders(origin);
+    if (request.method === "OPTIONS") {
+      return { status: 204, headers: cors };
+    }
     await initEngines().catch(() => {});
     const available = Object.keys(engines);
     return {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...cors },
       jsonBody: {
         engine: EVALUATOR_NAME,
         description:
